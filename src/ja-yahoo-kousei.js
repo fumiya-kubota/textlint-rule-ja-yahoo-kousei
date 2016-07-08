@@ -8,14 +8,20 @@ const defaultOptions = {
   ignores:{}
 };
 
-function fetchProofreading(appID, text) {
+function fetchProofreading(appID, text, options) {
+  let form = {
+    appid: appID,
+    sentence: text
+  }
+  console.log(options)
+  if (options['no_filter'] !== undefined) {
+    form['no_filter'] = options.no_filter.join(',')
+  }
+
   return new Promise((resolve, reject) => {
     request.post({
       url: 'http://jlp.yahooapis.jp/KouseiService/V1/kousei',
-      form: {
-        appid: appID,
-        sentence: text
-      },
+      form: form,
       json: true
     }, (error, response, body) => {
       if (error) return reject(error);
@@ -44,7 +50,7 @@ function getReportMessage(record, lang = 'en') {
 
 function containedIgnoreList(word, info, ignores) {
   const target = ignores[info];
-  
+
   if (!target) {
     return false;
   }
@@ -54,7 +60,7 @@ function containedIgnoreList(word, info, ignores) {
   else if (Array.isArray(target)) {
     return !!find(target, w => w === word);
   }
-  
+
   return false;
 }
 
@@ -73,14 +79,14 @@ export default function(context, options = {}) {
       return new Promise((resolve, reject) => {
         const paragraph = getSource(node);
 
-        fetchProofreading(appID, paragraph).then(json => {
+        fetchProofreading(appID, paragraph, options).then(json => {
           if (json.Error) {
             return reject(new Error(json.Error.Message[0]));
           }
 
           if (json && json.ResultSet.Result) {
             json.ResultSet.Result.forEach(result => {
-              
+
               if (containedIgnoreList(result.Surface[0], result.ShitekiInfo[0], options.ignores)) return;
 
               report(node, new RuleError(getReportMessage(result, options.lang)));
